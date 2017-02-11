@@ -25,10 +25,10 @@ func IsType(o, i interface{}) bool {
 
 func PrintMat4(m mgl32.Mat4) {
 	fmt.Printf("%s\n%s\n%s\n%s\n-------\n",
-		ftos(m[0:4]),
-		ftos(m[4:8]),
-		ftos(m[8:12]),
-		ftos(m[12:16]),
+		ftos([]float32{m[0], m[4], m[8], m[12]}),
+		ftos([]float32{m[1], m[5], m[9], m[13]}),
+		ftos([]float32{m[2], m[6], m[10], m[14]}),
+		ftos([]float32{m[3], m[7], m[11], m[15]}),
 	)
 }
 
