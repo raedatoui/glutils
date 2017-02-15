@@ -41,46 +41,46 @@ func BasicProgram(vertexShaderSource, fragmentShaderSource string) (uint32, erro
 	return program, nil
 }
 
-func Shader(vertFile, fragFile, geomFile string) (uint32, error) {
+func NewShader(vertFile, fragFile, geomFile string) (*Shader, error) {
 	vertexShaderSource, err := readFile(vertFile)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	fragmentShaderSource, err := readFile(fragFile)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	var geometryShaderSource []byte
 	if geomFile != "" {
 		geometryShaderSource, err = readFile(geomFile)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 	}
 
 	vertexShader, err := compileShader(string(vertexShaderSource)+"\x00", gl.VERTEX_SHADER)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	fragmentShader, err := compileShader(string(fragmentShaderSource)+"\x00", gl.FRAGMENT_SHADER)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	var geometryShader uint32
 	if geomFile != "" {
 		geometryShader, err = compileShader(string(geometryShaderSource)+"\x00", gl.GEOMETRY_SHADER)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 	}
 
 	program, err := createProgram(vertexShader, fragmentShader, geometryShader)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	gl.DetachShader(program, vertexShader)
@@ -94,7 +94,7 @@ func Shader(vertFile, fragFile, geomFile string) (uint32, error) {
 		gl.DeleteShader(geometryShader)
 	}
 
-	return program, nil
+	return &Shader{Program: program}, nil
 }
 
 func compileShader(source string, shaderType uint32) (uint32, error) {
@@ -143,4 +143,19 @@ func createProgram(vertexShader, fragmentShader, geometryShader uint32) (uint32,
 	}
 
 	return program, nil
+}
+
+
+func (s *Shader) AddUniform(n string) {
+	l := gl.GetUniformLocation(s.Program, gl.Str(n+"\x00"))
+	s.Uniforms[n] = l
+}
+
+func (s *Shader) GetUniform(n string) int32{
+	return s.Uniforms[n]
+}
+
+type Shader struct {
+	Program            uint32
+	Uniforms           map[string]int32
 }
