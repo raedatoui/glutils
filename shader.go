@@ -105,35 +105,35 @@ func setupShader(program uint32) *Shader {
 }
 
 func createProgram(v, f, g []byte) (uint32, error) {
-	vertex, err := compileShader(string(v)+"\x00", gl.VERTEX_SHADER)
-	if err != nil {
-		return 0, err
-	}
-
-	frag, err := compileShader(string(f)+"\x00", gl.FRAGMENT_SHADER)
-	if err != nil {
-		return 0, err
-	}
-
-	var geom uint32
+	var p, vertex, frag, geom uint32
 	use_geom := false
+
+	if val, err := compileShader(string(v)+"\x00", gl.VERTEX_SHADER); err != nil {
+		return 0, err
+	} else {
+		vertex = val
+		defer deleteShader(p, vertex)
+	}
+
+	if val, err := compileShader(string(f)+"\x00", gl.FRAGMENT_SHADER); err != nil {
+		return 0, err
+	} else {
+		frag = val
+		defer deleteShader(p, frag)
+	}
+
 	if len(g) > 0 {
-		geom, err = compileShader(string(g)+"\x00", gl.GEOMETRY_SHADER)
-		use_geom = true
-		if err != nil {
+		if val, err := compileShader(string(g)+"\x00", gl.GEOMETRY_SHADER); err != nil {
 			return 0, err
+		} else {
+			geom = val
+			defer deleteShader(p, geom)
 		}
 	}
 
 	p, err := linkProgram(vertex, frag, geom, use_geom)
 	if err != nil {
 		return 0, err
-	}
-
-	defer deleteShader(p, vertex)
-	defer deleteShader(p, frag)
-	if use_geom {
-		defer deleteShader(p, geom)
 	}
 
 	return p, nil
