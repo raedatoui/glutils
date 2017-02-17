@@ -53,17 +53,6 @@ func main () {
 		log.Fatalf("cant init gl %v", err)
 	}
 
-	shader, err := glutils.NewShader(
-		"basic.vs",
-		"basic.frag",
-		"")
-
-	if  err != nil {
-		log.Fatalf("cant create shader %v", err)
-	}
-
-	var vao, vbo uint32
-
 	vertices := []float32{
 		-0.5, -0.5, -0.5, 0.0, 0.0,
 		0.5, -0.5, -0.5, 1.0, 0.0,
@@ -122,23 +111,27 @@ func main () {
 		mgl32.Translate3D(-1.3, 1.0, -1.5),
 	}
 
-	gl.GenVertexArrays(1, &vao)
-	gl.GenBuffers(1, &vbo)
+	shader, err := glutils.NewShader(
+		"basic.vs",
+		"basic.frag",
+		"")
+	if  err != nil {
+		log.Fatalf("cant create shader %v", err)
+	}
 
-	gl.BindVertexArray(vao)
+	attr := make(map[uint32]int32)
+	attr[shader.Attributes["position"]] = 3
+	attr[shader.Attributes["texCoord"]] = 2
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*glutils.GL_FLOAT32_SIZE, gl.Ptr(vertices), gl.STATIC_DRAW)
+	v := glutils.VertexArray {
+		Data: vertices,
+		DrawMode: gl.STATIC_DRAW,
+		Stride: 5,
+		Attributes: attr,
+		Normalized: false,
+	}
 
-	// Position attribute
-	pos := shader.Attributes["position"]
-	gl.VertexAttribPointer(pos, 3, gl.FLOAT, false, 5*glutils.GL_FLOAT32_SIZE, gl.PtrOffset(0))
-	gl.EnableVertexAttribArray(pos)
-
-	// TexCoord attribute
-	tex := shader.Attributes["texCoord"]
-	gl.VertexAttribPointer(tex, 2, gl.FLOAT, false, 5*glutils.GL_FLOAT32_SIZE, gl.PtrOffset(3*glutils.GL_FLOAT32_SIZE))
-	gl.EnableVertexAttribArray(tex)
+	v.Setup()
 
 
 	gl.Enable(gl.BLEND)
@@ -167,7 +160,7 @@ func main () {
 		gl.UniformMatrix4fv(projLoc, 1, false, &projection[0])
 
 		// Draw container
-		gl.BindVertexArray(vao)
+		gl.BindVertexArray(v.Vao)
 
 		for i := 0; i < 10; i++ {
 			// Calculate the model matrix for each object and pass it to shader before drawing
