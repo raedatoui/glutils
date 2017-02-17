@@ -1,5 +1,6 @@
 package glutils
 
+import "C"
 import (
 	"fmt"
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -42,59 +43,98 @@ func BasicProgram(vertexShaderSource, fragmentShaderSource string) (uint32, erro
 }
 
 func NewShader(vertFile, fragFile, geomFile string) (*Shader, error) {
-	vertexShaderSource, err := readFile(vertFile)
+	vertSrc, err := readFile(vertFile)
 	if err != nil {
 		return nil, err
 	}
 
-	fragmentShaderSource, err := readFile(fragFile)
+	fragSrc, err := readFile(fragFile)
 	if err != nil {
 		return nil, err
 	}
 
-	var geometryShaderSource []byte
+	var geomSrc []byte
 	if geomFile != "" {
-		geometryShaderSource, err = readFile(geomFile)
+		geomSrc, err = readFile(geomFile)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	vertexShader, err := compileShader(string(vertexShaderSource)+"\x00", gl.VERTEX_SHADER)
+	program, err := createProgram(vertSrc, fragSrc, geomSrc)
 	if err != nil {
 		return nil, err
 	}
 
-	fragmentShader, err := compileShader(string(fragmentShaderSource)+"\x00", gl.FRAGMENT_SHADER)
+	var count int32
+	var i uint32
+	var s, b  int32
+	b = 255
+	var t uint32
+	var n uint8
+
+	uniforms := make(map[string]int32)
+	attributes := make(map[string]uint32)
+
+	gl.GetProgramiv(program, gl.ACTIVE_UNIFORMS, &count)
+	for i = 0; i < uint32(count); i++ {
+		gl.GetActiveUniform(program, i, b, nil, &s, &t, &n)
+		loc := gl.GetUniformLocation(program, &n)
+		name := gl.GoStr(&n)
+		fmt.Println(name, loc)
+		uniforms[name] = loc
+	}
+
+	gl.GetProgramiv(program, gl.ACTIVE_ATTRIBUTES, &count)
+	for i = 0; i < uint32(count); i++ {
+		gl.GetActiveAttrib(program, i, b, nil, &s, &t, &n)
+		loc := gl.GetAttribLocation(program, &n)
+		name := gl.GoStr(&n)
+		fmt.Println(name, loc)
+		attributes[name] = uint32(loc)
+	}
+
+	sh := &Shader{
+		Program: program,
+		Uniforms: uniforms,
+		Attributes: attributes,
+	}
+	return sh, nil
+}
+
+
+func createProgram(vertexSource, fragementSource, geometrySource string) (uint32, error) {
+	vertexShader, err := compileShader(string(vertexSource)+"\x00", gl.VERTEX_SHADER)
+	if err != nil {
+		return nil, err
+	}
+
+	fragmentShader, err := compileShader(string(fragementSource)+"\x00", gl.FRAGMENT_SHADER)
 	if err != nil {
 		return nil, err
 	}
 
 	var geometryShader uint32
-	if geomFile != "" {
-		geometryShader, err = compileShader(string(geometryShaderSource)+"\x00", gl.GEOMETRY_SHADER)
+	if geometrySource != "" {
+		geometryShader, err = compileShader(string(geometrySource), gl.GEOMETRY_SHADER)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	program, err := createProgram(vertexShader, fragmentShader, geometryShader)
+	program, err := linkProgram(vertexShader, fragmentShader, geometryShader)
+
 	if err != nil {
 		return nil, err
 	}
+	defer deleteShader(program, vertexShader)
+	defer deleteShader(program, fragmentShader)
 
-	gl.DetachShader(program, vertexShader)
-	gl.DetachShader(program, fragmentShader)
 
-	gl.DeleteShader(vertexShader)
-	gl.DeleteShader(fragmentShader)
-
-	if geomFile != "" {
-		gl.DetachShader(program, geometryShader)
-		gl.DeleteShader(geometryShader)
+	if geometrySource != "" {
+		defer deleteShader(program, geometryShader)
 	}
 
-	return &Shader{Program: program}, nil
 }
 
 func compileShader(source string, shaderType uint32) (uint32, error) {
@@ -120,7 +160,12 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-func createProgram(vertexShader, fragmentShader, geometryShader uint32) (uint32, error) {
+func deleteShader(p, s uint32) {
+	defer gl.DetachShader(p, s)
+	defer gl.DeleteShader(p)
+}
+
+func linkProgram(vertexShader, fragmentShader, geometryShader uint32) (uint32, error) {
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vertexShader)
 	gl.AttachShader(program, fragmentShader)
@@ -145,17 +190,8 @@ func createProgram(vertexShader, fragmentShader, geometryShader uint32) (uint32,
 	return program, nil
 }
 
-
-func (s *Shader) AddUniform(n string) {
-	l := gl.GetUniformLocation(s.Program, gl.Str(n+"\x00"))
-	s.Uniforms[n] = l
-}
-
-func (s *Shader) GetUniform(n string) int32{
-	return s.Uniforms[n]
-}
-
 type Shader struct {
-	Program            uint32
-	Uniforms           map[string]int32
+	Program    uint32
+	Uniforms   map[string]int32
+	Attributes map[string]uint32
 }
