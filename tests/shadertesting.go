@@ -119,9 +119,10 @@ func main () {
 		log.Fatalf("cant create shader %v", err)
 	}
 
-	attr := make(map[uint32]int32)
-	attr[shader.Attributes["position"]] = 3
-	attr[shader.Attributes["texCoord"]] = 2
+	attr := make(glutils.AttributesMap)
+	attr[shader.Attributes["texCoord"]] = [2]int{2, 3}
+	attr[shader.Attributes["position"]] = [2]int{3, 0}
+
 
 	v := glutils.VertexArray {
 		Data: vertices,
