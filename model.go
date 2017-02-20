@@ -6,14 +6,15 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"github.com/go-gl/gl/v4.1-core/gl"
-	"github.com/go-gl/mathgl/mgl32"
-	"github.com/raedatoui/assimp"
 	"os"
 	"strconv"
 	"strings"
-	"unsafe"
 	"sync"
+	"unsafe"
+
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/mathgl/mgl32"
+	"github.com/raedatoui/assimp"
 )
 
 type Mesh struct {
@@ -150,7 +151,7 @@ type Texture struct {
 
 type Model struct {
 	texturesLoaded  map[string]Texture
-	wg	sync.WaitGroup
+	wg              sync.WaitGroup
 	Meshes          []Mesh
 	GammaCorrection bool
 	BasePath        string
@@ -202,15 +203,15 @@ func (m *Model) Export() error {
 
 func (m *Model) Import() error {
 	f := m.BasePath + m.GobName
- 	dataFile, err := os.Open(f)
+	dataFile, err := os.Open(f)
 
 	if err != nil {
 		return err
- 	}
+	}
 	defer dataFile.Close()
 
- 	dataDecoder := gob.NewDecoder(dataFile)
- 	if err := dataDecoder.Decode(&m); err != nil {
+	dataDecoder := gob.NewDecoder(dataFile)
+	if err := dataDecoder.Decode(&m); err != nil {
 		return err
 	}
 
@@ -275,7 +276,7 @@ func (m *Model) processNode(n *assimp.Node, s *assimp.Scene) {
 			mesh := s.Meshes()[n.Meshes()[index]]
 			ms := m.processMesh(mesh, s)
 			m.Meshes = append(m.Meshes, ms)
-		} (i)
+		}(i)
 
 	}
 

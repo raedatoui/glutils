@@ -3,9 +3,9 @@ package glutils
 import "C"
 import (
 	"fmt"
-	"github.com/go-gl/gl/v4.1-core/gl"
 	"strings"
-	"unsafe"
+
+	"github.com/go-gl/gl/v4.1-core/gl"
 )
 
 func BasicProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
@@ -73,37 +73,30 @@ func NewShader(vertFile, fragFile, geomFile string) (Shader, error) {
 
 func setupShader(program uint32) Shader {
 	var (
-		c, b int32
-		i    uint32
+		c int32
+		i uint32
 	)
-	b = 255
-	c = -1
 	gl.UseProgram(program)
 	uniforms := make(map[string]int32)
 	attributes := map[string]uint32{} //make(map[string]uint32)
 
 	gl.GetProgramiv(program, gl.ACTIVE_UNIFORMS, &c)
 	for i = 0; i < uint32(c); i++ {
-		var s, l int32
-		var n uint8
-		gl.GetActiveUniform(program, i, b, &l, &s, nil, &n)
-		loc := gl.GetUniformLocation(program, &n)
-		name := GoGLChar(&n, C.int(l))
-		fmt.Println(loc, name)
+		var buf [256]byte
+		gl.GetActiveUniform(program, i, 256, nil, nil, nil, &buf[0])
+		loc := gl.GetUniformLocation(program, &buf[0])
+		name := gl.GoStr(&buf[0])
 		uniforms[name] = loc
 	}
 
 	gl.GetProgramiv(program, gl.ACTIVE_ATTRIBUTES, &c)
 	for i = 0; i < uint32(c); i++ {
-		var s, l int32
-		var n uint8
-		gl.GetActiveAttrib(program, i, b, &l, &s, nil, &n)
-		loc := gl.GetAttribLocation(program, &n)
-		name := GoGLChar(&n, C.int(l))
-		fmt.Println(loc, name)
+		var buf [256]byte
+		gl.GetActiveAttrib(program, i, 256, nil, nil, nil, &buf[0])
+		loc := gl.GetAttribLocation(program, &buf[0])
+		name := gl.GoStr(&buf[0])
 		attributes[name] = uint32(loc)
 	}
-
 
 	return Shader{
 		Program:    program,
@@ -217,52 +210,56 @@ type VertexArray struct {
 	Normalized    bool
 	DrawMode      uint32
 	Attributes    AttributesMap
-	Vao, vbo, ebo uint32
+	Vao, Vbo, Ebo uint32
 }
 
 func (v *VertexArray) Setup() {
 	gl.GenVertexArrays(1, &v.Vao)
-	gl.GenBuffers(1, &v.vbo)
+	fillVbo := true
+	// Vbo already set when VertexArray was instancied.
+	// This is a secondary structure using the same Vbo and vertex
+	// data but with a different shader and attributes
+	if v.Vbo == 0 {
+		gl.GenBuffers(1, &v.Vbo)
+	} else {
+		fillVbo = false
+	}
+	if len(v.Indices) > 0 {
+		gl.GenBuffers(1, &v.Ebo)
+	}
 
 	gl.BindVertexArray(v.Vao)
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, v.vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(v.Data)*GL_FLOAT32_SIZE, gl.Ptr(v.Data), v.DrawMode)
+	gl.BindBuffer(gl.ARRAY_BUFFER, v.Vbo)
+	if fillVbo {
+		gl.BufferData(gl.ARRAY_BUFFER, len(v.Data)*GL_FLOAT32_SIZE, gl.Ptr(v.Data), v.DrawMode)
+	}
 
 	if len(v.Indices) > 0 {
-		gl.GenBuffers(1, &v.ebo)
-		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, v.ebo)
+		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, v.Ebo)
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(v.Indices)*GL_FLOAT32_SIZE, gl.Ptr(v.Indices), v.DrawMode)
 	}
 
 	for loc, ss := range v.Attributes {
-		fmt.Println(loc, ss)
-		gl.VertexAttribPointer(loc, int32(ss[0]), gl.FLOAT, v.Normalized, v.Stride*GL_FLOAT32_SIZE, gl.PtrOffset(ss[1]*GL_FLOAT32_SIZE))
 		gl.EnableVertexAttribArray(loc)
+		gl.VertexAttribPointer(loc, int32(ss[0]), gl.FLOAT, v.Normalized, v.Stride*GL_FLOAT32_SIZE, gl.PtrOffset(ss[1]*GL_FLOAT32_SIZE))
 	}
 	gl.BindVertexArray(0)
 }
 
 func (v *VertexArray) Delete() {
 	gl.DeleteVertexArrays(1, &v.Vao)
-	gl.DeleteBuffers(1, &v.vbo)
+	gl.DeleteBuffers(1, &v.Vbo)
 	if len(v.Indices) > 0 {
-		gl.DeleteBuffers(1, &v.ebo)
+		gl.DeleteBuffers(1, &v.Ebo)
 	}
-}
-
-func GoGLChar(cstr *uint8, l C.int) string {
-	return C.GoStringN((*C.char)(unsafe.Pointer(cstr)), l) + ""
-}
-
-func GoStrings(argc int32, argv *uint8) string {
-	data := (*C.char)(unsafe.Pointer(argv))
-	fmt.Println(data)
-	return C.GoStringN(data, C.int(argc))
 }
 
 type AttributesMap map[uint32][2]int //map attrib loc to size / offset
 
+func NewAttributesMap() AttributesMap {
+	return make(AttributesMap)
+}
 func (am AttributesMap) Add(k uint32, size, offset int) {
 	am[k] = [2]int{size, offset}
 }
