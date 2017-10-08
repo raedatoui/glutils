@@ -113,14 +113,14 @@ func createProgram(v, f, g []byte) (uint32, error) {
 		return 0, err
 	} else {
 		vertex = val
-		defer deleteShader(p, vertex)
+		defer func(s uint32) { deleteShader(p, s) }(vertex)
 	}
 
 	if val, err := compileShader(string(f)+"\x00", gl.FRAGMENT_SHADER); err != nil {
 		return 0, err
 	} else {
 		frag = val
-		defer deleteShader(p, frag)
+		defer func(s uint32) { deleteShader(p, s) }(frag)
 	}
 
 	if len(g) > 0 {
@@ -128,7 +128,7 @@ func createProgram(v, f, g []byte) (uint32, error) {
 			return 0, err
 		} else {
 			geom = val
-			defer deleteShader(p, geom)
+			defer func(s uint32) { deleteShader(p, s) }(geom)
 		}
 	}
 
